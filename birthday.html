@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🎂 생일 축하해!</title>
+<link href="https://fonts.googleapis.com/css2?family=Pacifico&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    font-family: 'Noto Sans KR', sans-serif;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Camera background */
+  #camera-video {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+    z-index: 0;
+  }
+
+  /* Semi-transparent dark overlay */
+  #overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.25);
+    z-index: 1;
+  }
+
+  /* Main container */
+  #app {
+    position: relative;
+    z-index: 10;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    padding-bottom: 5vh;
+  }
+
+  /* Camera permission screen */
+  #cam-permission {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: linear-gradient(135deg, #1a0a2e, #2d1b4e, #1a0a2e);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    padding: 30px;
+  }
+
+  #cam-permission .emoji { font-size: 64px; animation: bounce 1.5s infinite; }
+  #cam-permission h2 {
+    font-family: 'Pacifico', cursive;
+    color: #FFD700;
+    font-size: clamp(22px, 6vw, 32px);
+    text-align: center;
+    text-shadow: 0 0 20px rgba(255,215,0,0.6);
+  }
+  #cam-permission p {
+    color: rgba(255,255,255,0.8);
+    font-size: clamp(14px, 4vw, 16px);
+    text-align: center;
+    line-height: 1.6;
+  }
+
+  #allow-cam-btn {
+    background: linear-gradient(135deg, #FFD700, #FF8C00);
+    border: none;
+    border-radius: 50px;
+    padding: 16px 40px;
+    font-size: clamp(16px, 4.5vw, 20px);
+    font-family: 'Noto Sans KR', sans-serif;
+    font-weight: 700;
+    color: #1a0a2e;
+    cursor: pointer;
+    box-shadow: 0 0 30px rgba(255,215,0,0.5);
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  #allow-cam-btn:active { transform: scale(0.95); }
+
+  /* Cake SVG wrapper */
+  #cake-wrapper {
+    position: relative;
+    width: min(320px, 85vw);
+    margin-bottom: 20px;
+    filter: drop-shadow(0 10px 30px rgba(0,0,0,0.5));
+  }
+
+  #cake-svg { width: 100%; height: auto; }
+
+  /* Flame animation */
+  .flame {
+    animation: flicker 0.4s ease-in-out infinite alternate;
+    transform-origin: bottom center;
+  }
+  .flame:nth-child(odd) { animation-delay: 0.1s; }
+  .flame:nth-child(even) { animation-duration: 0.35s; }
+
+  @keyframes flicker {
+    0% { transform: scaleX(1) scaleY(1) rotate(-2deg); opacity: 1; }
+    100% { transform: scaleX(0.85) scaleY(1.1) rotate(2deg); opacity: 0.9; }
+  }
+
+  .flame-outer { fill: #FF6B00; }
+  .flame-inner { fill: #FFE066; }
+  .flame-core  { fill: #FFFFFF; }
+
+  /* Smoke animation */
+  .smoke {
+    opacity: 0;
+    animation: none;
+  }
+  .smoke.active {
+    animation: smokeRise 1.5s ease-out forwards;
+  }
+  @keyframes smokeRise {
+    0%   { opacity: 0.8; transform: translateY(0) scale(0.5); }
+    100% { opacity: 0; transform: translateY(-30px) scale(2); }
+  }
+
+  /* Button */
+  #celebrate-btn {
+    background: linear-gradient(135deg, #FF4E8A, #FF8C00, #FFD700);
+    background-size: 200% 200%;
+    animation: gradShift 3s ease infinite;
+    border: none;
+    border-radius: 60px;
+    padding: clamp(14px, 4vw, 18px) clamp(30px, 10vw, 50px);
+    font-size: clamp(18px, 5.5vw, 24px);
+    font-family: 'Noto Sans KR', sans-serif;
+    font-weight: 900;
+    color: white;
+    cursor: pointer;
+    box-shadow: 0 6px 30px rgba(255, 78, 138, 0.6), 0 0 0 4px rgba(255,255,255,0.25);
+    letter-spacing: 1px;
+    transition: transform 0.15s, box-shadow 0.15s;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  }
+  #celebrate-btn:active { transform: scale(0.94); }
+  @keyframes gradShift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+
+  /* Countdown display */
+  #countdown {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  #countdown.visible { opacity: 1; }
+
+  #countdown-num {
+    font-family: 'Pacifico', cursive;
+    font-size: clamp(100px, 35vw, 180px);
+    color: white;
+    text-shadow:
+      0 0 40px rgba(255,215,0,0.9),
+      0 0 80px rgba(255,165,0,0.6),
+      0 6px 0 rgba(0,0,0,0.4);
+    animation: none;
+    transform: scale(1);
+  }
+  #countdown-num.pop {
+    animation: popNum 0.6s cubic-bezier(0.36, 0.07, 0.19, 0.97) forwards;
+  }
+  @keyframes popNum {
+    0%   { transform: scale(0.3); opacity: 0; }
+    60%  { transform: scale(1.2); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  @keyframes popOut {
+    0%   { transform: scale(1); opacity: 1; }
+    100% { transform: scale(2); opacity: 0; }
+  }
+
+  /* Birthday message */
+  #birthday-msg {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    opacity: 0;
+    transform: scale(0.5);
+    transition: opacity 0.5s, transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  #birthday-msg.visible {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  #msg-text {
+    font-family: 'Pacifico', cursive;
+    font-size: clamp(36px, 12vw, 72px);
+    color: #FFD700;
+    text-shadow:
+      0 0 20px rgba(255,215,0,0.9),
+      0 0 60px rgba(255,165,0,0.6),
+      0 4px 0 rgba(180, 90, 0, 0.6);
+    text-align: center;
+    line-height: 1.2;
+    padding: 0 20px;
+  }
+  #msg-sub {
+    font-size: clamp(16px, 4.5vw, 22px);
+    color: rgba(255,255,255,0.9);
+    margin-top: 12px;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    letter-spacing: 2px;
+  }
+
+  /* Confetti */
+  .confetti-piece {
+    position: fixed;
+    width: 10px;
+    height: 10px;
+    top: -20px;
+    z-index: 55;
+    border-radius: 2px;
+    animation: confettiFall linear forwards;
+  }
+  @keyframes confettiFall {
+    0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
+    90%  { opacity: 1; }
+    100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+  }
+
+  /* Glow ring around candles when blown */
+  .blow-glow {
+    fill: rgba(255, 230, 100, 0.0);
+    filter: blur(8px);
+    transition: fill 0.4s;
+  }
+  .blow-glow.active { fill: rgba(255, 230, 100, 0.6); }
+
+  @keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-12px); }
+  }
+
+  /* Sparkle stars */
+  .star {
+    position: fixed;
+    pointer-events: none;
+    z-index: 56;
+    animation: starFloat 2s ease-out forwards;
+    font-size: clamp(18px, 5vw, 28px);
+  }
+  @keyframes starFloat {
+    0% { transform: scale(0) rotate(0deg); opacity: 1; }
+    70% { transform: scale(1.3) rotate(180deg); opacity: 1; }
+    100% { transform: scale(0.8) rotate(360deg) translateY(-60px); opacity: 0; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Camera permission screen -->
+<div id="cam-permission">
+  <div class="emoji">🎂</div>
+  <h2>생일 파티를 시작해볼까?</h2>
+  <p>셀카 카메라를 켜서<br>케이크 앞에서 생일을 축하해요! 🎉</p>
+  <button id="allow-cam-btn" onclick="startCamera()">📸 카메라 켜기</button>
+</div>
+
+<!-- Camera video -->
+<video id="camera-video" autoplay playsinline muted></video>
+<div id="overlay"></div>
+
+<!-- Main content -->
+<div id="app">
+
+  <!-- Cake -->
+  <div id="cake-wrapper">
+    <svg id="cake-svg" viewBox="0 0 320 280" xmlns="http://www.w3.org/2000/svg">
+
+      <!-- Cake body layers -->
+      <!-- Bottom tier -->
+      <ellipse cx="160" cy="230" rx="115" ry="20" fill="#c0392b" opacity="0.7"/>
+      <rect x="45" y="175" width="230" height="55" rx="8" fill="#e74c3c"/>
+      <ellipse cx="160" cy="175" rx="115" ry="20" fill="#f1948a"/>
+      <!-- Decorative dots bottom tier -->
+      <circle cx="80" cy="200" r="5" fill="#FFD700" opacity="0.9"/>
+      <circle cx="110" cy="195" r="4" fill="#FF69B4" opacity="0.9"/>
+      <circle cx="145" cy="198" r="5" fill="#fff" opacity="0.8"/>
+      <circle cx="180" cy="194" r="4" fill="#FFD700" opacity="0.9"/>
+      <circle cx="215" cy="200" r="5" fill="#FF69B4" opacity="0.9"/>
+      <circle cx="240" cy="196" r="4" fill="#fff" opacity="0.8"/>
+      <!-- Cream swirl bottom -->
+      <path d="M45 175 Q75 160 105 175 Q135 160 165 175 Q195 160 225 175 Q255 160 275 175" stroke="white" stroke-width="5" fill="none" opacity="0.8" stroke-linecap="round"/>
+
+      <!-- Middle tier -->
+      <ellipse cx="160" cy="170" rx="90" ry="16" fill="#c0392b" opacity="0.6"/>
+      <rect x="70" y="120" width="180" height="52" rx="8" fill="#e74c3c" opacity="0.95"/>
+      <ellipse cx="160" cy="120" rx="90" ry="16" fill="#f1948a"/>
+      <!-- Middle tier dots -->
+      <circle cx="100" cy="143" r="4" fill="#fff" opacity="0.9"/>
+      <circle cx="130" cy="138" r="5" fill="#FFD700" opacity="0.9"/>
+      <circle cx="160" cy="143" r="4" fill="#FF69B4" opacity="0.9"/>
+      <circle cx="190" cy="138" r="5" fill="#fff" opacity="0.9"/>
+      <circle cx="220" cy="143" r="4" fill="#FFD700" opacity="0.9"/>
+      <!-- Cream swirl middle -->
+      <path d="M70 120 Q100 107 130 120 Q160 107 190 120 Q220 107 250 120" stroke="white" stroke-width="5" fill="none" opacity="0.8" stroke-linecap="round"/>
+
+      <!-- Top tier -->
+      <ellipse cx="160" cy="115" rx="65" ry="12" fill="#c0392b" opacity="0.6"/>
+      <rect x="95" y="72" width="130" height="44" rx="8" fill="#e74c3c" opacity="0.9"/>
+      <ellipse cx="160" cy="72" rx="65" ry="12" fill="#f1948a"/>
+      <!-- Top tier dots -->
+      <circle cx="118" cy="93" r="4" fill="#FFD700" opacity="0.9"/>
+      <circle cx="145" cy="88" r="3.5" fill="#fff" opacity="0.9"/>
+      <circle cx="175" cy="93" r="4" fill="#FF69B4" opacity="0.9"/>
+      <circle cx="202" cy="88" r="3.5" fill="#FFD700" opacity="0.9"/>
+
+      <!-- "25" text on cake -->
+      <text x="160" y="105" font-family="Pacifico, cursive" font-size="22" fill="white" text-anchor="middle" opacity="0.95">25 🎂</text>
+
+      <!-- ===== CANDLES ===== -->
+      <!-- Tall candle 1 (left) - height ~55px, width 10px -->
+      <rect x="122" y="14" width="10" height="58" rx="5" fill="#FF69B4"/>
+      <rect x="123" y="14" width="4" height="58" rx="3" fill="rgba(255,255,255,0.3)"/>
+      <!-- Tall candle 2 (right) -->
+      <rect x="188" y="14" width="10" height="58" rx="5" fill="#7B68EE"/>
+      <rect x="189" y="14" width="4" height="58" rx="3" fill="rgba(255,255,255,0.3)"/>
+
+      <!-- Short candle 1 -->
+      <rect x="100" y="38" width="9" height="34" rx="4.5" fill="#FF8C00"/>
+      <rect x="101" y="38" width="3.5" height="34" rx="3" fill="rgba(255,255,255,0.3)"/>
+      <!-- Short candle 2 -->
+      <rect x="138" y="40" width="9" height="32" rx="4.5" fill="#00CED1"/>
+      <rect x="139" y="40" width="3.5" height="32" rx="3" fill="rgba(255,255,255,0.3)"/>
+      <!-- Short candle 3 (center) -->
+      <rect x="155.5" y="37" width="9" height="35" rx="4.5" fill="#32CD32"/>
+      <rect x="156.5" y="37" width="3.5" height="35" rx="3" fill="rgba(255,255,255,0.3)"/>
+      <!-- Short candle 4 -->
+      <rect x="173" y="40" width="9" height="32" rx="4.5" fill="#FFD700"/>
+      <rect x="174" y="40" width="3.5" height="32" rx="3" fill="rgba(255,255,255,0.3)"/>
+      <!-- Short candle 5 -->
+      <rect x="211" y="38" width="9" height="34" rx="4.5" fill="#FF4E8A"/>
+      <rect x="212" y="38" width="3.5" height="34" rx="3" fill="rgba(255,255,255,0.3)"/>
+
+      <!-- ===== FLAMES ===== -->
+      <!-- Using groups for easy show/hide -->
+
+      <!-- Tall candle 1 flame -->
+      <g id="flame-t1" class="flame">
+        <ellipse class="blow-glow" cx="127" cy="14" rx="14" ry="14"/>
+        <path class="flame-outer" d="M127,5 C130,9 133,12 127,18 C121,12 124,9 127,5"/>
+        <path class="flame-inner" d="M127,7 C129,10 131,13 127,17 C123,13 125,10 127,7"/>
+        <ellipse class="flame-core" cx="127" cy="14" rx="2.5" ry="3.5"/>
+      </g>
+      <!-- Smoke tall 1 -->
+      <g id="smoke-t1" class="smoke">
+        <circle cx="127" cy="10" r="4" fill="rgba(200,200,200,0.5)"/>
+        <circle cx="129" cy="3" r="5" fill="rgba(180,180,180,0.4)"/>
+      </g>
+
+      <!-- Tall candle 2 flame -->
+      <g id="flame-t2" class="flame" style="animation-delay:0.15s">
+        <ellipse class="blow-glow" cx="193" cy="14" rx="14" ry="14"/>
+        <path class="flame-outer" d="M193,5 C196,9 199,12 193,18 C187,12 190,9 193,5"/>
+        <path class="flame-inner" d="M193,7 C195,10 197,13 193,17 C189,13 191,10 193,7"/>
+        <ellipse class="flame-core" cx="193" cy="14" rx="2.5" ry="3.5"/>
+      </g>
+      <g id="smoke-t2" class="smoke">
+        <circle cx="193" cy="10" r="4" fill="rgba(200,200,200,0.5)"/>
+        <circle cx="195" cy="3" r="5" fill="rgba(180,180,180,0.4)"/>
+      </g>
+
+      <!-- Short candle 1 flame -->
+      <g id="flame-s1" class="flame" style="animation-delay:0.07s">
+        <path class="flame-outer" d="M104.5,29 C107,33 109.5,36 104.5,41 C99.5,36 102,33 104.5,29"/>
+        <path class="flame-inner" d="M104.5,31 C106.5,34 108,37 104.5,40 C101,37 102.5,34 104.5,31"/>
+        <ellipse class="flame-core" cx="104.5" cy="37" rx="2" ry="2.8"/>
+      </g>
+      <g id="smoke-s1" class="smoke">
+        <circle cx="104.5" cy="27" r="3.5" fill="rgba(200,200,200,0.5)"/>
+      </g>
+
+      <!-- Short candle 2 flame -->
+      <g id="flame-s2" class="flame" style="animation-delay:0.2s">
+        <path class="flame-outer" d="M142.5,31 C145,35 147.5,38 142.5,43 C137.5,38 140,35 142.5,31"/>
+        <path class="flame-inner" d="M142.5,33 C144.5,36 146,39 142.5,42 C139,39 140.5,36 142.5,33"/>
+        <ellipse class="flame-core" cx="142.5" cy="39" rx="2" ry="2.8"/>
+      </g>
+      <g id="smoke-s2" class="smoke">
+        <circle cx="142.5" cy="29" r="3.5" fill="rgba(200,200,200,0.5)"/>
+      </g>
+
+      <!-- Short candle 3 flame (center) -->
+      <g id="flame-s3" class="flame" style="animation-delay:0.05s">
+        <path class="flame-outer" d="M160,28 C162.5,32 165,35 160,40 C155,35 157.5,32 160,28"/>
+        <path class="flame-inner" d="M160,30 C162,33 163.5,36 160,39 C156.5,36 158,33 160,30"/>
+        <ellipse class="flame-core" cx="160" cy="36" rx="2" ry="2.8"/>
+      </g>
+      <g id="smoke-s3" class="smoke">
+        <circle cx="160" cy="26" r="3.5" fill="rgba(200,200,200,0.5)"/>
+      </g>
+
+      <!-- Short candle 4 flame -->
+      <g id="flame-s4" class="flame" style="animation-delay:0.18s">
+        <path class="flame-outer" d="M177.5,31 C180,35 182.5,38 177.5,43 C172.5,38 175,35 177.5,31"/>
+        <path class="flame-inner" d="M177.5,33 C179.5,36 181,39 177.5,42 C174,39 175.5,36 177.5,33"/>
+        <ellipse class="flame-core" cx="177.5" cy="39" rx="2" ry="2.8"/>
+      </g>
+      <g id="smoke-s4" class="smoke">
+        <circle cx="177.5" cy="29" r="3.5" fill="rgba(200,200,200,0.5)"/>
+      </g>
+
+      <!-- Short candle 5 flame -->
+      <g id="flame-s5" class="flame" style="animation-delay:0.12s">
+        <path class="flame-outer" d="M215.5,29 C218,33 220.5,36 215.5,41 C210.5,36 213,33 215.5,29"/>
+        <path class="flame-inner" d="M215.5,31 C217.5,34 219,37 215.5,40 C212,37 213.5,34 215.5,31"/>
+        <ellipse class="flame-core" cx="215.5" cy="37" rx="2" ry="2.8"/>
+      </g>
+      <g id="smoke-s5" class="smoke">
+        <circle cx="215.5" cy="27" r="3.5" fill="rgba(200,200,200,0.5)"/>
+      </g>
+
+    </svg>
+  </div>
+
+  <!-- Celebrate button -->
+  <button id="celebrate-btn" onclick="startCelebration()">
+    🎉 생일 축하하기
+  </button>
+</div>
+
+<!-- Countdown overlay -->
+<div id="countdown">
+  <div id="countdown-num">3</div>
+</div>
+
+<!-- Birthday message overlay -->
+<div id="birthday-msg">
+  <div id="msg-text">🎂<br>생일 축하해!</div>
+  <div id="msg-sub">✨ 행복한 하루 보내 ✨</div>
+</div>
+
+<script>
+// ────────── CAMERA ──────────
+async function startCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false
+    });
+    const video = document.getElementById('camera-video');
+    video.srcObject = stream;
+    document.getElementById('cam-permission').style.display = 'none';
+  } catch(e) {
+    alert('카메라 권한이 필요해요 😢\n설정에서 카메라를 허용해주세요!');
+  }
+}
+
+// ────────── AUDIO ──────────
+let audioCtx = null;
+
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function playNote(freq, start, duration, vol = 0.4) {
+  const ctx = getAudioCtx();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
+  gain.gain.setValueAtTime(0, ctx.currentTime + start);
+  gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + start + 0.02);
+  gain.gain.setValueAtTime(vol, ctx.currentTime + start + duration - 0.05);
+  gain.gain.linearRampToValueAtTime(0, ctx.currentTime + start + duration);
+  osc.start(ctx.currentTime + start);
+  osc.stop(ctx.currentTime + start + duration);
+}
+
+function playBirthdaySong() {
+  // Happy Birthday melody
+  // G4=392, A4=440, B4=494, C5=523, D5=587, E5=659, F5=698, G5=784
+  const N = { G4:392, A4:440, B4:494, C5:523, D5:587, E5:659, F5:698, G5:784 };
+  const tempo = 0.35;
+  const notes = [
+    // Line 1: Happy Birthday to you
+    [N.G4,0],   [N.G4,1],   [N.A4,2],   [N.G4,3.5], [N.C5,4.5], [N.B4,6],
+    // Line 2: Happy Birthday to you
+    [N.G4,8],   [N.G4,9],   [N.A4,10],  [N.G4,11.5],[N.D5,12.5],[N.C5,14],
+    // Line 3: Happy Birthday dear friend
+    [N.G4,16],  [N.G4,17],  [N.G5,18],  [N.E5,19.5],[N.C5,21],  [N.B4,22],[N.A4,23],
+    // Line 4: Happy Birthday to you
+    [N.F5,24.5],[N.F5,25.5],[N.E5,26.5],[N.C5,28],  [N.D5,29],  [N.C5,31]
+  ];
+  const durations = [0.8,0.8,1.5,1.2,1.2,2.5, 0.8,0.8,1.5,1.2,1.2,2.5,
+                     0.8,0.8,1.5,1.2,1.2,0.8,2.0, 0.8,0.8,1.5,1.2,1.5,3.0];
+  notes.forEach(([freq, beat], i) => {
+    playNote(freq, beat * tempo, (durations[i] || 1) * tempo * 0.85);
+  });
+}
+
+// ────────── CELEBRATION ──────────
+let celebrated = false;
+
+function startCelebration() {
+  if (celebrated) return;
+  celebrated = true;
+
+  const btn = document.getElementById('celebrate-btn');
+  btn.disabled = true;
+  btn.style.opacity = '0.5';
+
+  // Start music immediately
+  playBirthdaySong();
+
+  // Countdown
+  const countdownEl = document.getElementById('countdown');
+  const numEl = document.getElementById('countdown-num');
+
+  let count = 3;
+  showCount(count);
+
+  function showCount(n) {
+    countdownEl.classList.add('visible');
+    numEl.classList.remove('pop');
+    numEl.textContent = n;
+    void numEl.offsetWidth; // reflow
+    numEl.classList.add('pop');
+
+    if (n > 1) {
+      setTimeout(() => showCount(n - 1), 900);
+    } else {
+      // After "1"
+      setTimeout(() => {
+        countdownEl.classList.remove('visible');
+        blowCandles();
+      }, 900);
+    }
+  }
+}
+
+function blowCandles() {
+  const flameIds = ['flame-t1','flame-t2','flame-s1','flame-s2','flame-s3','flame-s4','flame-s5'];
+  const smokeIds = ['smoke-t1','smoke-t2','smoke-s1','smoke-s2','smoke-s3','smoke-s4','smoke-s5'];
+
+  // Quick stagger blow-out
+  flameIds.forEach((id, i) => {
+    setTimeout(() => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.style.transition = 'opacity 0.2s';
+        el.style.opacity = '0';
+      }
+      // Show smoke
+      const smoke = document.getElementById(smokeIds[i]);
+      if (smoke) {
+        smoke.classList.add('active');
+        smoke.style.animation = 'smokeRise 1.2s ease-out forwards';
+      }
+    }, i * 80);
+  });
+
+  // Play blow puff sound
+  playBlowSound();
+
+  // Show birthday message after all candles out
+  setTimeout(() => {
+    showBirthdayMsg();
+    createConfetti();
+    createStars();
+  }, 800);
+}
+
+function playBlowSound() {
+  const ctx = getAudioCtx();
+  const bufLen = ctx.sampleRate * 0.3;
+  const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < bufLen; i++) {
+    data[i] = (Math.random() * 2 - 1) * (1 - i / bufLen) * 0.3;
+  }
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'highpass';
+  filter.frequency.value = 1000;
+  src.connect(filter);
+  filter.connect(ctx.destination);
+  src.start();
+}
+
+function showBirthdayMsg() {
+  const msg = document.getElementById('birthday-msg');
+  msg.classList.add('visible');
+}
+
+// ────────── CONFETTI ──────────
+function createConfetti() {
+  const colors = ['#FF4E8A','#FFD700','#00CED1','#FF8C00','#7B68EE','#32CD32','#fff'];
+  for (let i = 0; i < 80; i++) {
+    setTimeout(() => {
+      const el = document.createElement('div');
+      el.className = 'confetti-piece';
+      el.style.left = Math.random() * 100 + 'vw';
+      el.style.background = colors[Math.floor(Math.random() * colors.length)];
+      el.style.width = (8 + Math.random() * 8) + 'px';
+      el.style.height = (8 + Math.random() * 8) + 'px';
+      el.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+      el.style.animationDuration = (2.5 + Math.random() * 2) + 's';
+      el.style.animationDelay = '0s';
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 5000);
+    }, i * 30);
+  }
+}
+
+// ────────── STARS ──────────
+function createStars() {
+  const emojis = ['⭐','✨','🌟','💫','🎉','🎊','💖','🌈'];
+  for (let i = 0; i < 15; i++) {
+    setTimeout(() => {
+      const el = document.createElement('div');
+      el.className = 'star';
+      el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+      el.style.left = (10 + Math.random() * 80) + 'vw';
+      el.style.top = (10 + Math.random() * 70) + 'vh';
+      el.style.animationDuration = (1.5 + Math.random()) + 's';
+      el.style.animationDelay = (Math.random() * 0.5) + 's';
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 3000);
+    }, i * 120);
+  }
+}
+
+// Tap birthday message for more confetti
+document.getElementById('birthday-msg').addEventListener('click', function() {
+  createConfetti();
+  createStars();
+});
+</script>
+</body>
+</html>
